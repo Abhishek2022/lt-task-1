@@ -23,7 +23,13 @@ const userSchema = new mongoose.Schema({
         validator(value) {
             if(value < 0) throw Error('Invalid age')    // Validator
         }
-    }
+    },
+    tokens: [{
+        token: {
+            type: String,
+            required: true
+        }
+    }]
 })
 
 userSchema.statics.findByCredentials = async (username, password) => {
@@ -47,6 +53,8 @@ userSchema.pre('save', async function (next) {
 userSchema.methods.generateAuthToken = async function() {
     const user = this
     const token = jwt.sign({ _id: user._id.toString() }, 'mysecret')
+    user.tokens = user.tokens.concat({token})
+    await user.save()
     return token
 }
 

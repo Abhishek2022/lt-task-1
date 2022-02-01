@@ -1,6 +1,7 @@
 const express = require('express')
 require('./db/mongoose')
 const User = require('./models/user')
+const auth = require('./middleware/auth')
 
 const app = express()
 const port = 3000
@@ -15,17 +16,18 @@ app.get('/users', async (req, res) => {
         })
         res.send(compiledUsers)
     } catch(e) {
-        res.status(500).send(e)
+        res.status(500).send()
     }
 })
 
 app.post('/register', async (req, res) => {
     const user = new User(req.body)
     try {
+        const token = await user.generateAuthToken()
         await user.save()
         res.status(201).send(user)
     } catch(e) {
-        res.status(500).send(e)
+        res.status(500).send()
     }
 })
 
@@ -35,24 +37,30 @@ app.post('/login', async (req, res) => {
         const token = await user.generateAuthToken()
         res.send({user,token})
     } catch (e) {
-        console.log(e)
         res.status(500).send({Error: "Invalid Credentials"})
     }
 })
 
-app.patch('/update/:id', async (req, res) => {
-    const id = req.params.id
+app.patch('/update/me', auth, async (req, res) => {
     const updates = Object.keys(req.body)
     try {
-        const user = await User.findById(id)
         updates.forEach((update) => {
-            user[update] = req.body[update]
+            req.user[update] = req.body[update]
         })        
-        await user.save()
-        if(!user) return res.status(404).send({Error: "No user found!"})
-        res.send(user)
+        await req.user.save()
+        res.send(req.user)
     } catch(e) {
-        res.status(500).send(e)
+        res.status(500).send()
+    }
+})
+
+app.post('/logout', auth, async (req, res) => {
+    try {
+        req.user.tokens = []
+        req.user.save()
+        res.send(req.user)
+    } catch (e) {
+        res.status(400).send({error: 'Please Authenticate'})
     }
 })
 
